@@ -1,7 +1,20 @@
+import 'package:books_app/blocs/settings/app_settings_bloc.dart';
+import 'package:books_app/generated/app_localizations.dart';
+import 'package:books_app/l10n/l10n.dart';
+import 'package:books_app/utils/app_palette.dart';
+import 'package:books_app/utils/constants.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(MultiBlocProvider(
+    providers: [
+      BlocProvider(
+          create: (context) => AppSettingsBloc()..add(InitAppSettings()))
+    ],
+    child: const MyApp(),
+  ));
 }
 
 class MyApp extends StatelessWidget {
@@ -10,36 +23,33 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
-        primarySwatch: Colors.blue,
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
+    return BlocBuilder<AppSettingsBloc, AppSettingsState>(
+        builder: (context, state) {
+      AppTheme? _appTheme;
+      if (state is ThemeState) {
+        _appTheme = state.appTheme;
+      }
+
+      Locale? _locale;
+      if (state is LocaleState) {
+        _locale = state.locale;
+      }
+
+      return MaterialApp(
+        title: AppConstants.appName,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: _locale ?? const Locale('ru'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        theme: AppPalette.themeData[_appTheme] ??
+            AppPalette.themeData[AppTheme.darkBlueTheme],
+        home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      );
+    });
   }
 }
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({Key? key, required this.title}) : super(key: key);
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
 
   final String title;
 
@@ -52,11 +62,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _incrementCounter() {
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
       _counter++;
     });
   }
@@ -78,38 +83,73 @@ class _MyHomePageState extends State<MyHomePage> {
       body: Center(
         // Center is a layout widget. It takes a single child and positions it
         // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Invoke "debug painting" (press "p" in the console, choose the
-          // "Toggle Debug Paint" action from the Flutter Inspector in Android
-          // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-          // to see the wireframe for each widget.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headline4,
-            ),
-          ],
-        ),
+        child: BlocBuilder<AppSettingsBloc, AppSettingsState>(
+            builder: (context, state) {
+          AppTheme? _appTheme;
+          if (state is ThemeState) {
+            _appTheme = state.appTheme;
+          }
+
+          Locale? _locale;
+          if (state is LocaleState) {
+            _locale = state.locale;
+          }
+
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(AppLocalizations.of(context)?.sign_in ?? ''),
+              _buildLocaleBtn(Locale('en'), _locale, "English"),
+              _buildLocaleBtn(Locale('ru'), _locale, "Русский"),
+              _buildThemeButton(
+                  AppTheme.lightBlueTheme, _appTheme, 'Light Blue'),
+              _buildThemeButton(AppTheme.darkBlueTheme, _appTheme, 'Dark Blue'),
+            ],
+          );
+        }),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _incrementCounter,
         tooltip: 'Increment',
         child: const Icon(Icons.add),
       ), // This trailing comma makes auto-formatting nicer for build methods.
+    );
+  }
+
+  Widget _buildLocaleBtn(Locale locale, Locale? currentLocale, String label) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.start,
+      children: [
+        Radio<Locale>(
+          activeColor: Theme.of(context).colorScheme.secondary,
+          groupValue: currentLocale,
+          value: locale,
+          onChanged: (Locale? locale) {
+            BlocProvider.of<AppSettingsBloc>(context).add(ChangeLocale(locale));
+          },
+        )
+      ],
+    );
+  }
+
+  Widget _buildThemeButton(
+      AppTheme theme, AppTheme? currentTheme, String label) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.start,
+      children: [
+        Radio<AppTheme>(
+          activeColor: Theme.of(context).colorScheme.secondary,
+          groupValue: currentTheme,
+          value: theme,
+          onChanged: (AppTheme? _theme) {
+            BlocProvider.of<AppSettingsBloc>(context).add(ToogleTheme(_theme));
+          },
+        ),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodyText1?.copyWith(fontSize: 14),
+        )
+      ],
     );
   }
 }
